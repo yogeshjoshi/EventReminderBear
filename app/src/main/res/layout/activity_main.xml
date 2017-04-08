@@ -10,8 +10,15 @@
     android:paddingTop="@dimen/activity_vertical_margin"
     tools:context="com.example.joshiyogesh.eventreminderbear.MainActivity">
 
-    <TextView
+
+    <Button
+        android:text="Choose Date"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Hello World!" />
+        android:layout_marginStart="14dp"
+        android:layout_marginTop="65dp"
+        android:id="@+id/chooseDate"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentStart="true"
+        android:onClick="setDate"/>
 </RelativeLayout>
