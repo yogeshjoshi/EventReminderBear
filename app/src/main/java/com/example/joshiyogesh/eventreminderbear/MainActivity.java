@@ -3,11 +3,13 @@ package com.example.joshiyogesh.eventreminderbear;
 import android.Manifest;
 import android.accounts.AccountManager;
 import android.app.Dialog;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
@@ -16,10 +18,22 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.api.client.extensions.android.http.AndroidHttp;
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential;
+import com.google.api.client.googleapis.extensions.android.gms.auth.GooglePlayServicesAvailabilityIOException;
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.DateTime;
 import com.google.api.client.util.ExponentialBackOff;
 import com.google.api.services.calendar.CalendarScopes;
+import com.google.api.services.calendar.model.Event;
+import com.google.api.services.calendar.model.EventAttendee;
+import com.google.api.services.calendar.model.EventDateTime;
+import com.google.api.services.calendar.model.EventReminder;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -40,6 +54,8 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     private static final String PREF_ACCOUNT_NAME = "accountName";
     GoogleAccountCredential googleAccountCredential;
     private static final String[] scopes = {CalendarScopes.CALENDAR};
+
+    ProgressDialog progressDialog;
     /**
     * Create the main Activity.
     * @param savedInstanceState previously saved instance state
@@ -51,6 +67,11 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 //        Initialize credentials and service object
             googleAccountCredential = GoogleAccountCredential.usingOAuth2(getApplicationContext(), Arrays.asList(scopes)).
                     setBackOff(new ExponentialBackOff());
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setMessage("Calling Google Calendar API ...");
+
+
+        sendResultToApi();
 
     }
 
@@ -73,7 +94,9 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         else if (! isDeviceOnline()){
             Toast.makeText(MainActivity.this,"Check Your Network Connection",Toast.LENGTH_LONG).show();
         }
-        else{}
+        else{
+            new MakeRequestTask(googleAccountCredential).execute();
+        }
     }
 
     /**
@@ -239,4 +262,108 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     }
     /**------------------------------------------------------------------------------*/
+
+
+    /**
+     * An asynchronous task that handles the Google Calendar API call.
+     * Placing the API calls in their own task ensures the UI stays responsive.
+     */
+
+    private class MakeRequestTask extends AsyncTask<Void,Void,Void>{
+        private com.google.api.services.calendar.Calendar mService = null;
+        private Exception mLastError = null;
+
+        MakeRequestTask(GoogleAccountCredential credential) {
+            HttpTransport transport = AndroidHttp.newCompatibleTransport();
+            JsonFactory jsonFactory = JacksonFactory.getDefaultInstance();
+            mService = new com.google.api.services.calendar.Calendar.Builder(
+                    transport, jsonFactory, credential)
+                    .setApplicationName("Google Calendar API Android Quickstart")
+                    .build();
+        }
+        @Override
+        protected void onPreExecute(){
+            progressDialog.show();
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            super.onPostExecute(aVoid);
+            progressDialog.hide();
+            Toast.makeText(MainActivity.this, "Your Event Has been Successfully added ", Toast.LENGTH_LONG).show();
+        }
+
+        @Override
+        protected void onCancelled() {
+            super.onCancelled();
+            if (mLastError != null) {
+                if (mLastError instanceof GooglePlayServicesAvailabilityIOException) {
+                    showGooglePlayServiceAvailabilityErrorDialog(
+                            ((GooglePlayServicesAvailabilityIOException) mLastError)
+                                    .getConnectionStatusCode());
+                } else if (mLastError instanceof UserRecoverableAuthIOException) {
+                    startActivityForResult(
+                            ((UserRecoverableAuthIOException) mLastError).getIntent(),
+                            MainActivity.REQUEST_AUTHORIZATION);
+                } else {
+                    Toast.makeText(MainActivity.this,"The following error occurred:\n"+mLastError.getMessage(),Toast.LENGTH_LONG).show();
+                }
+            } else {
+                Toast.makeText(MainActivity.this,"Request Cancelled",Toast.LENGTH_LONG).show();
+            }
+
+        }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            createEvent();
+            return null;
+        }
+        /**
+         * createEvent() method help in adding Event in google play service Calendar
+        * */
+        private void createEvent(){
+            Event event = new Event()
+                    .setSummary("There is Placement Drive")
+                    .setLocation("Jalandhar")
+                    .setDescription("Elite SmartCare Solutions is going to visit");
+            DateTime date = new DateTime("2017-04-11T09:00:00-05:30");
+            EventDateTime start = new EventDateTime()
+                    .setDateTime(date)
+                    .setTimeZone("Asia/Calcutta");
+            event.setStart(start);
+
+            DateTime endDateTime = new DateTime("2017-04-12T17:00:00-05:30");
+            EventDateTime end = new EventDateTime()
+                    .setDateTime(endDateTime)
+                    .setTimeZone("Asia/Calcutta");
+            event.setEnd(end);
+
+            String[] recurrence = new String[] {"RRULE:FREQ=DAILY;COUNT=2"};
+            event.setRecurrence(Arrays.asList(recurrence));
+
+            EventAttendee[] attendees = new EventAttendee[] {
+                    new EventAttendee().setEmail("yogeshcj.cs.14@nitj.ac.in"),
+                    new EventAttendee().setEmail("joshiyogesh002@gmail.com"),
+            };
+            event.setAttendees(Arrays.asList(attendees));
+
+            EventReminder[] reminderOverrides = new EventReminder[] {
+                    new EventReminder().setMethod("email").setMinutes(24 * 60),
+                    new EventReminder().setMethod("popup").setMinutes(10),
+            };
+            Event.Reminders reminders = new Event.Reminders()
+                    .setUseDefault(false)
+                    .setOverrides(Arrays.asList(reminderOverrides));
+            event.setReminders(reminders);
+
+            String calendarId = "primary";
+            try {
+                event = mService.events().insert(calendarId, event).execute();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
+    }
 }
