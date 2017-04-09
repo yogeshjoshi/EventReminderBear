@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
 
     private static final String PREF_ACCOUNT_NAME = "accountName";
     GoogleAccountCredential googleAccountCredential;
-    private static final String[] scopes = {CalendarScopes.CALENDAR};
+    private static final String[] scopes = {CalendarScopes.CALENDAR_READONLY};
 
     ProgressDialog progressDialog;
     /**
@@ -272,6 +272,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
     private class MakeRequestTask extends AsyncTask<Void,Void,Void>{
         private com.google.api.services.calendar.Calendar mService = null;
         private Exception mLastError = null;
+        Event event;
 
         MakeRequestTask(GoogleAccountCredential credential) {
             HttpTransport transport = AndroidHttp.newCompatibleTransport();
@@ -290,7 +291,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
         protected void onPostExecute(Void aVoid) {
             super.onPostExecute(aVoid);
             progressDialog.hide();
-            Toast.makeText(MainActivity.this, "Your Event Has been Successfully added ", Toast.LENGTH_LONG).show();
+            Toast.makeText(MainActivity.this, "Your Event Has been Successfully added  "+event.getHtmlLink(), Toast.LENGTH_LONG).show();
         }
 
         @Override
@@ -323,7 +324,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
          * createEvent() method help in adding Event in google play service Calendar
         * */
         private void createEvent(){
-            Event event = new Event()
+             event = new Event()
                     .setSummary("There is Placement Drive")
                     .setLocation("Jalandhar")
                     .setDescription("Elite SmartCare Solutions is going to visit");
@@ -333,7 +334,7 @@ public class MainActivity extends AppCompatActivity implements EasyPermissions.P
                     .setTimeZone("Asia/Calcutta");
             event.setStart(start);
 
-            DateTime endDateTime = new DateTime("2017-04-12T17:00:00-05:30");
+            DateTime endDateTime = new DateTime("2017-04-12T09:00:00-05:30");
             EventDateTime end = new EventDateTime()
                     .setDateTime(endDateTime)
                     .setTimeZone("Asia/Calcutta");
